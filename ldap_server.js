@@ -8,9 +8,9 @@ LDAP_DEFAULTS = {
 	url: false,
 	port: '389',
 	dn: false,
-	search: false,
 	createNewUser: true,
-	defaultDomain: false
+	defaultDomain: false,
+	searchResultsProfileMap: false
 };
 
 /**
@@ -25,7 +25,7 @@ var LDAP = function(options) {
 	try {
 		check(this.options.url, String);
 		check(this.options.dn, String);
-	} catch(e) {
+	} catch (e) {
 		throw new Meteor.Error("Bad Defaults", "Options not set. Make sure to set LDAP_DEFAULTS.url and LDAP_DEFAULTS.dn!");
 	}
 
@@ -94,7 +94,7 @@ LDAP.prototype.ldapCheck = function(options) {
 					retObject.email = domain ? username + '@' + domain : false;
 
 					// Return search results if specified
-					if (self.options.search) {
+					if (self.options.searchResultsProfileMap) {
 						client.search(self.options.dn, {}, function(err, res) {
 
 							res.on('searchEntry', function(entry) {
@@ -181,14 +181,32 @@ Accounts.registerLoginHandler("ldap", function(loginRequest) {
 			var userObject = {
 				username: ldapResponse.username
 			};
+			// Set email
 			if (ldapResponse.email) userObject.email = ldapResponse.email;
-			if (ldapResponse.searchResults) userObject.profile = {
-				name: ldapResponse.searchResults.cn
-			};
+
+			// Set profile values if specified in searchResultsProfileMap
+			if (ldapResponse.searchResults && ldapObj.options.searchResultsProfileMap.length > 0) {
+
+				var profileMap = ldapObj.options.searchResultsProfileMap;
+				var profileObject = {};
+
+				// Loop through profileMap and set values on profile object
+				for (var i = 0; i < profileMap.length; i++) {
+					var resultKey = profileMap[i].resultKey;
+
+					// If our search results have the specified property, set the profile property to its value
+					if (ldapResponse.searchResults.hasOwnProperty(resultKey)) {
+						profileObject[profileMap[i].profileProperty] = ldapResponse.searchResults[resultKey];
+					}
+
+				}
+				// Set userObject profile
+				userObject.profile = profileObject;
+			}
+
 
 			userId = Accounts.createUser(userObject);
-		}
-		else {
+		} else {
 			// Ldap success, but no user created
 			return {
 				userId: null,
