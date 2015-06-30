@@ -76,7 +76,7 @@ Issues + Notes
 
 * The LDAP dn is specific to your Active Directory. Talk to whoever manages it to figure out what would work best.
 * ***Because the package binds/authenticates with LDAP server-side, the user/password are sent to the server unencrypted. I still need to figure out a solution for this.***
-* Right now Node throws a warning on meteor startup: `{ [Error: Cannot find module './build/Debug/DTraceProviderBindings'] code: 'MODULE_NOT_FOUND' }` because optional dependencies are missing. It doesn't seem to affect the ldapjs functionality, but I'm still trying to figure out how to squelch it. See [this thread](https://github.com/mcavage/node-ldapjs/issues/64).
+* Right now Node throws a warning on meteor startup: `{ [Error: Cannot find module './build/Debug/DTraceProviderBindings'] code: 'MODULE_NOT_FOUND' }` because optional dependencies are missing. It doesn't seem to affect the ldapjs functionality, but I'm still trying to figure out how to squelch it. See [this thread](https://github.com/mcavage/node-ldapjs/issues/64). As a workaround, you can re-install the included dtrace-provider NPM package: `<project-root>/.meteor/local/build/programs/server/npm/typ_ldapjs/node_modules/ldapjs$ sudo npm install dtrace-provider`
 
 
 Going Forward
