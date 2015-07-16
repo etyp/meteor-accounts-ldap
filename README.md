@@ -52,6 +52,7 @@ user.profile = {
 }
 ```
 
+`LDAP_DEFAULTS.base`: This is the base dn used for searches if the searchResultsProfileMap is set.
 
 #### Client Side Configuration
 
@@ -64,7 +65,10 @@ Meteor.loginWithLDAP(username, password, {
     // The dn value depends on what you want to search/auth against
     // The structure will depend on how your ldap server
     // is configured or structured.
-  dn: "uid=" + username + ",cn=users,dc=whatever,dc=valuesyouneed"
+  dn: "uid=" + username + ",cn=users,dc=whatever,dc=valuesyouneed",
+    // The search value is optional. Set it if your search does not
+    // work with the bind dn.
+  search: "(objectclass=*)"
 }, function(err) {
   if (err)
     console.log(err.reason);
@@ -77,6 +81,24 @@ Issues + Notes
 * The LDAP dn is specific to your Active Directory. Talk to whoever manages it to figure out what would work best.
 * ***Because the package binds/authenticates with LDAP server-side, the user/password are sent to the server unencrypted. I still need to figure out a solution for this.***
 * Right now Node throws a warning on meteor startup: `{ [Error: Cannot find module './build/Debug/DTraceProviderBindings'] code: 'MODULE_NOT_FOUND' }` because optional dependencies are missing. It doesn't seem to affect the ldapjs functionality, but I'm still trying to figure out how to squelch it. See [this thread](https://github.com/mcavage/node-ldapjs/issues/64). As a workaround, you can re-install the included dtrace-provider NPM package: `<project-root>/.meteor/local/build/programs/server/npm/typ_ldapjs/node_modules/ldapjs$ sudo npm install dtrace-provider`
+
+
+Active Directory
+-----
+
+Using AD you can bind using domain\username. This example works for me:
+
+```
+//on the server
+LDAP_DEFAULTS.base = 'OU=User,DC=your,DC=company,DC=com';
+
+//on the client
+var domain = "yourDomain";
+
+Meteor.loginWithLDAP(user, password, 
+  { dn: domain + '\\' + user, search: '(sAMAccountName=' + user + ')' } , function(err, result) { ... }
+);
+```
 
 
 Going Forward

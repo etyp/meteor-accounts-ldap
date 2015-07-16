@@ -10,7 +10,9 @@ LDAP_DEFAULTS = {
 	dn: false,
 	createNewUser: true,
 	defaultDomain: false,
-	searchResultsProfileMap: false
+	searchResultsProfileMap: false,
+	base: null,
+	search: '(objectclass=*)'
 };
 
 /**
@@ -95,7 +97,23 @@ LDAP.prototype.ldapCheck = function(options) {
 
 					// Return search results if specified
 					if (self.options.searchResultsProfileMap) {
-						client.search(self.options.dn, {}, function(err, res) {
+
+						// construct list of ldap attributes to fetch
+						var attributes = [];
+						self.options.searchResultsProfileMap.map(function(item) {
+							attributes.push(item.resultKey);
+						});
+
+						// use base if given, else the dn for the ldap search
+						var searchBase = self.options.base || self.options.dn;
+						var searchOptions = {
+							scope: 'sub',
+							sizeLimit: 1,
+							attributes: attributes,
+							filter: self.options.search
+						}
+
+						client.search(searchBase, searchOptions, function(err, res) {
 
 							res.on('searchEntry', function(entry) {
 								// Add entry results to return object
