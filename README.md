@@ -32,7 +32,7 @@ The package exposes a global variable called `LDAP_DEFAULTS` on the server side.
 
 `LDAP_DFAULTS.defaultDomain`: Specify the email domain to be used when creating a new user on login. Defaults to `false` - so if the user has entered xyz@site.com and `defaultDomain` is not set, then their email will be saved as xyz@site.com.
 
-`LDAP_DEFAULTS.searchResultsProfileMap`: This can be used if there are attributes at your specified dn that you'd like to use to set properties when creating a new user's profile. 
+`LDAP_DEFAULTS.searchResultsProfileMap`: This can be used if there are attributes at your specified dn that you'd like to use to set properties when creating a new user's profile.
 
 For example, if the results had a 'cn' value of the user's name and a 'tn' value of their phone number, you'd set the `searchResultsProfileMap` to this:
 
@@ -77,7 +77,16 @@ Meteor.loginWithLDAP(username, password, {
 
 Issues + Notes
 -----
-
+* If your app requires that only LDAP authorized users should be able to login, it is strongly recommended that you \
+include the following server-side code to prevent a user from gaining access through Accounts.createUser(), which will \
+otherwise automatically login a newly created (non-LDAP) user:
+```
+Meteor.startup(function () {
+  Accounts.config({
+  	forbidClientAccountCreation: true
+  });
+});
+```
 * The LDAP dn is specific to your Active Directory. Talk to whoever manages it to figure out what would work best.
 * ***Because the package binds/authenticates with LDAP server-side, the user/password are sent to the server unencrypted. I still need to figure out a solution for this.***
 * Right now Node throws a warning on meteor startup: `{ [Error: Cannot find module './build/Debug/DTraceProviderBindings'] code: 'MODULE_NOT_FOUND' }` because optional dependencies are missing. It doesn't seem to affect the ldapjs functionality, but I'm still trying to figure out how to squelch it. See [this thread](https://github.com/mcavage/node-ldapjs/issues/64). As a workaround, you can re-install the included dtrace-provider NPM package: `<project-root>/.meteor/local/build/programs/server/npm/typ_ldapjs/node_modules/ldapjs$ sudo npm install dtrace-provider`
@@ -95,7 +104,7 @@ LDAP_DEFAULTS.base = 'OU=User,DC=your,DC=company,DC=com';
 //on the client
 var domain = "yourDomain";
 
-Meteor.loginWithLDAP(user, password, 
+Meteor.loginWithLDAP(user, password,
   { dn: domain + '\\' + user, search: '(sAMAccountName=' + user + ')' } , function(err, result) { ... }
 );
 ```
