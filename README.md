@@ -78,8 +78,7 @@ Meteor.loginWithLDAP(username, password, {
 Issues + Notes
 -----
 * If your app requires that only LDAP authorized users should be able to login, it is strongly recommended that you
-include the following server-side code to prevent a user from gaining access through Accounts.createUser(), which will
-otherwise automatically login a newly created (non-LDAP) user:
+include the following server-side code to prevent a user from gaining access through Accounts.createUser() on the client, which will otherwise automatically login a newly created (non-LDAP) user:
 ```
 //on the server
 Meteor.startup(function () {
