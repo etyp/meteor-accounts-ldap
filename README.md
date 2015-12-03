@@ -54,11 +54,27 @@ user.profile = {
 
 `LDAP_DEFAULTS.base`: This is the base dn used for searches if the searchResultsProfileMap is set.
 
+
+#### LDAPS Support
+
+If you want to use `ldaps` to implement secure authentication, you also need to provide an SSL certificate
+(e.g. in the shape of a `ssl.pem` file)
+
+Simply set the following defaults in some server-side code:
+
+```
+LDAP_DEFAULTS.ldapsCertificate = Assets.getText('ldaps/ssl.pem'); // asset location of the SSL certificate
+LDAP_DEFAULTS.port = 636; // default port for LDAPS
+LDAP_DEFAULTS.url = 'ldaps://my-ldap-host.com'; // ldaps protocol
+```
+
+This example configuration will require the `ssl.pem` file to be located in `<your-project-root>/private/ldap/ssl.pem`.
+
 #### Client Side Configuration
 
 The package exposes a new Meteor login method `Meteor.loginWithLDAP()` which can be called from the client. The usual user and password are required. The third parameter is for custom LDAP options. You'll most likely want to pass in the customLdapOptions.dn on the options object.
 
-An example login call might look ike this:
+An example login call might look like this:
 
 ```
 Meteor.loginWithLDAP(username, password, {
@@ -74,6 +90,38 @@ Meteor.loginWithLDAP(username, password, {
     console.log(err.reason);
 });
 ```
+
+#### Search Before Bind
+
+In some scenarios, your login names might not directly correspond to the `dn` of the LDAP record.
+This requires to search for the `dn`, before you can authenticate.
+
+If you don't know the `dn`, simply provide the attribute to search for to determine the `dn` (e.g. searching by email):
+
+```
+Meteor.loginWithLDAP(email, password, {
+		// search by email (all other options are configured server side)
+		searchBeforeBind: {
+			mail: email
+		}
+    }, function(err) {
+    	if (err) {
+    		// login failed
+		}
+		else {
+			// login successful
+		}
+    }
+);
+```
+
+In above example the LDAP record needs to have an attribute `mail` which will be searched for. The first matching record
+will be used to determine the `dn` of the LDAP record. Then the binding will be executed using the provided password
+and the `dn` retrieved via the search.
+
+If you provide the `dn` as option for the `loginWithLDAP` call, the search will NOT be executed. Also don't configure
+the `LDAP_DEFAULTS.dn` as it has the same effect.
+
 
 Issues + Notes
 -----
