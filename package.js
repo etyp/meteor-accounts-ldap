@@ -1,7 +1,7 @@
 Package.describe({
   name: 'typ:accounts-ldap',
   version: '1.0.0',
-  summary: 'Accounts login handler for LDAP using ldapjs and allowing to search anonymously for the DN before binding.',
+  summary: 'Accounts login for LDAP using ldapjs. Supports anonymous DN search & LDAPS.',
   git: 'https://github.com/typ90/meteor-accounts-ldap',
   documentation: 'README.md'
 });
