@@ -13,7 +13,10 @@ Package.onUse(function(api) {
   api.use(['templating'], 'client');
   api.use(['typ:ldapjs@0.7.3'], 'server');
 
-  api.use(['accounts-base', 'accounts-password'], 'server');
+  api.use('accounts-base', 'server');
+  api.imply('accounts-base', ['client', 'server']);
+
+  api.use('check');
 
   api.addFiles(['ldap_client.js'], 'client');
   api.addFiles(['ldap_server.js'], 'server');
@@ -21,4 +24,3 @@ Package.onUse(function(api) {
   api.export('LDAP', 'server');
   api.export('LDAP_DEFAULTS', 'server');
 });
-
