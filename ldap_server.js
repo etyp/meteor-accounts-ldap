@@ -8,6 +8,8 @@ LDAP_DEFAULTS = {
 	url: false,
 	port: '389',
 	dn: false,
+	searchDN: false,
+	searchCredentials: false,
 	createNewUser: true,
 	defaultDomain: false,
 	searchResultsProfileMap: false,
@@ -98,54 +100,75 @@ LDAP.prototype.ldapCheck = function(options) {
 		// If DN is provided, use it to bind
 		if (self.options.dn) {
 			// Attempt to bind to ldap server with provided info
-			client.bind(self.options.dn, options.ldapPass, function(err) {
+			client.bind(self.options.searchDN || self.options.dn, self.options.searchCredentials || options.ldapPass, function(err) {
 				try {
 					if (err) {
 						// Bind failure, return error
 						throw new Meteor.Error(err.code, err.message);
-					} else {
-						// Bind auth successful
-						// Create return object
-						var retObject = {
-							username: username,
-							searchResults: null
-						};
-						// Set email on return object
-						retObject.email = domain ? username + '@' + domain : false;
-
-						// Return search results if specified
-						if (self.options.searchResultsProfileMap) {
-
-							// construct list of ldap attributes to fetch
-							var attributes = [];
-							self.options.searchResultsProfileMap.map(function(item) {
-								attributes.push(item.resultKey);
-							});
-
-							// use base if given, else the dn for the ldap search
-							var searchBase = self.options.base || self.options.dn;
-							var searchOptions = {
-								scope: 'sub',
-								sizeLimit: 1,
-								attributes: attributes,
-								filter: self.options.search
-							};
-
-							client.search(searchBase, searchOptions, function(err, res) {
-
-								res.on('searchEntry', function(entry) {
-									// Add entry results to return object
-									retObject.searchResults = entry.object;
-									ldapAsyncFut.return(retObject);
-								});
-
-							});
-						}
-						// No search results specified, return username and email object
-						else {
-							ldapAsyncFut.return(retObject);
-						}
 					}
+
+					var handleSearchProfile = function(retObject, bindAfterSearch) {
+
+                        // construct list of ldap attributes to fetch
+                        var attributes = [];
+                        if (self.options.searchResultsProfileMap) {
+                            self.options.searchResultsProfileMap.map(function (item) {
+                                attributes.push(item.resultKey);
+                            });
+                        }
+
+                        // use base if given, else the dn for the ldap search
+                        var searchBase = self.options.base || self.options.dn;
+                        var searchOptions = {
+                            scope: 'sub',
+                            sizeLimit: 1,
+                            attributes: attributes,
+                            filter: self.options.search
+                        };
+
+                        client.search(searchBase, searchOptions, function (err, res) {
+                            if (err) {
+                                ldapAsyncFut.return({
+                                    error: err
+                                });
+                            }
+
+                            res.on('searchEntry', function (entry) {
+                                // Add entry results to return object
+                                retObject.searchResults = entry.object;
+                                if (bindAfterSearch) {
+                                    client.bind(retObject.searchResults.dn, options.ldapPass, function (err) {
+                                        try {
+                                            if (err) {
+                                                throw new Meteor.Error(err.code, err.message);
+                                            }
+                                            ldapAsyncFut.return(retObject);
+                                        } catch (e) {
+                                            ldapAsyncFut.return({
+                                                error: e
+                                            });
+                                        }
+                                    })
+                                } else ldapAsyncFut.return(retObject);
+                            });
+
+                        });
+					};
+
+					var retObject = {
+						username: username,
+						searchResults: null,
+						email: domain ? username + '@' + domain : false
+					};
+
+					if (self.options.searchDN) {
+						handleSearchProfile(retObject, true);
+					} else if (self.options.searchResultsProfileMap){
+						handleSearchProfile(retObject, false);
+					} else {
+						ldapAsyncFut.return(retObject);
+					}
+
 				} catch (e) {
 					ldapAsyncFut.return({
 						error: e
@@ -191,7 +214,6 @@ LDAP.prototype.ldapCheck = function(options) {
 					// Return search results if specified
 					if (self.options.searchResultsProfileMap) {
 						// construct list of ldap attributes to fetch
-						var attributes = [];
 						self.options.searchResultsProfileMap.map(function (item) {
 							retObject.searchResults[item.resultKey] = entry.object[item.resultKey];
 						});
@@ -259,7 +281,7 @@ Accounts.registerLoginHandler('ldap', function(loginRequest) {
 	else if (ldapResponse.emptySearch) {
 		return {
 			userId: null,
-			error: 'User not found'
+			error: new Meteor.Error(403, 'User not found in LDAP')
 		};
 	}
 	else {
@@ -320,9 +342,10 @@ Accounts.registerLoginHandler('ldap', function(loginRequest) {
 			userId = Accounts.createUser(userObject);
 		} else {
 			// Ldap success, but no user created
+            console.log('LDAP Authentication succeeded for '+ldapResponse.username+', but no user exists in Meteor. Either create the user manually or set LDAP_DEFAULTS.createNewUser to true');
 			return {
 				userId: null,
-				error: 'LDAP Authentication succeded, but no user exists in Mongo. Either create a user for this email or set LDAP_DEFAULTS.createNewUser to true'
+				error: new Meteor.Error(403, 'User found in LDAP but not in application')
 			};
 		}
 
@@ -332,5 +355,4 @@ Accounts.registerLoginHandler('ldap', function(loginRequest) {
 		};
 	}
 
-	return undefined;
 });
