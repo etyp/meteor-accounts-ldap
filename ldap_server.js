@@ -108,6 +108,7 @@ LDAP.prototype.ldapCheck = function (options) {
                     }
 
                     var handleSearchProfile = function (retObject, bindAfterSearch) {
+                        retObject.emptySearch = true;
 
                         // construct list of ldap attributes to fetch
                         var attributes = [];
@@ -134,6 +135,7 @@ LDAP.prototype.ldapCheck = function (options) {
                             }
 
                             res.on('searchEntry', function (entry) {
+                                retObject.emptySearch = false;
                                 // Add entry results to return object
                                 retObject.searchResults = entry.object;
                                 if (bindAfterSearch) {
@@ -150,6 +152,10 @@ LDAP.prototype.ldapCheck = function (options) {
                                         }
                                     })
                                 } else ldapAsyncFut.return(retObject);
+                            });
+
+                            res.on('end', function () {
+                                ldapAsyncFut.return(retObject);
                             });
 
                         });
