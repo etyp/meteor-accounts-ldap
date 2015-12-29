@@ -155,7 +155,7 @@ LDAP.prototype.ldapCheck = function (options) {
                             });
 
                             res.on('end', function () {
-                                if (retObject.dn === undefined) {
+                                if (retObject.dn === undefined && !bindAfterSearch) {
                                     ldapAsyncFut.return(retObject);
                                 }
                             });
