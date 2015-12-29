@@ -47,7 +47,7 @@ spacebars-compiler@1.0.7
 templating@1.1.5
 templating-tools@1.0.0
 tracker@1.0.9
-typ:accounts-ldap@1.0.0
+typ:accounts-ldap@1.0.1
 typ:ldapjs@0.7.3
 ui@1.0.8
 underscore@1.0.4
