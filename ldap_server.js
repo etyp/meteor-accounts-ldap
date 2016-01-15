@@ -117,146 +117,106 @@ LDAP.create.prototype.ldapCheck = function (options, bindAfterFind) {
             return resultEntry;
         };
 
-        // If DN is provided, use it to bind
-        if (self.options.dn) {
-
-            var handleSearchProfile = function (retObject, bindAfterFind) {
-                retObject.emptySearch = true;
-                retObject.searchResults = [];
-
-                // construct list of ldap attributes to fetch
-                var attributes = [];
-                if (self.options.searchResultsProfileMap) {
-                    self.options.searchResultsProfileMap.map(function (item) {
-                        attributes.push(item.resultKey);
-                    });
-                }
-
-                // use base if given, else the dn for the ldap search
-                var searchBase = self.options.base || self.options.dn;
-                var searchOptions = {
-                    scope: 'sub',
-                    sizeLimit: bindAfterFind ? 1 : self.options.searchSizeLimit,
-                    attributes: attributes,
-                    filter: self.options.search
-                };
-
-                client.search(searchBase, searchOptions, function (err, res) {
-                    var bound = false;
-                    if (err) {
-                        ldapAsyncFut.return({
-                            error: err
-                        });
-                    } else {
-                        res.on('searchEntry', function (entry) {
-                            if (bound) return;
-                            retObject.emptySearch = false;
-                            if (bindAfterFind) {
-                                bound = true;
-                                client.bind(entry.object.dn, options.ldapPass, function (err) {
-                                    try {
-                                        if (err) {
-                                            throw new Meteor.Error(err.code, err.message);
-                                        }
-                                        ldapAsyncFut.return(retObject);
-                                    } catch (e) {
-                                        ldapAsyncFut.return({
-                                            error: e
-                                        });
-                                    }
-                                })
-                            }
-                            retObject.searchResults.push(mapResultFields(entry.object));
-                        });
-
-                        res.on('end', function () {
-                            if (retObject.emptySearch || !bindAfterFind) {
-                                ldapAsyncFut.return(retObject);
-                            }
-                        });
-                    }
-                });
-            };
-            if (self.options.searchDN || bindAfterFind) {
-                // Attempt to bind to ldap server with provided info
-                client.bind(self.options.searchDN || self.options.dn, self.options.searchCredentials || options.ldapPass, function (err) {
-                    try {
-                        if (err) {
-                            // Bind failure, return error
-                            throw new Meteor.Error(err.code, err.message);
-                        }
-
-                        if (self.options.searchDN) {
-                            handleSearchProfile(retObject, bindAfterFind);
-                        } else if (self.options.searchResultsProfileMap) {
-                            handleSearchProfile(retObject, false);
-                        } else {
-                            ldapAsyncFut.return(retObject);
-                        }
-
-                    } catch (e) {
-                        ldapAsyncFut.return({
-                            error: e
-                        });
-                    }
-                });
-            } else handleSearchProfile(retObject);
-        }
-        // DN not provided, search for DN and use result to bind
-        else if (typeof self.options.searchBeforeBind !== undefined) {
-            // initialize result
+        var handleSearchProfile = function (retObject, bindAfterFind) {
             retObject.emptySearch = true;
-            retObject.searchResults = {};
+            retObject.searchResults = [];
 
-            // compile attribute list to return
-            var searchAttributes = ['dn'];
-            self.options.searchResultsProfileMap.map(function (item) {
-                searchAttributes.push(item.resultKey);
-            });
+            // construct list of ldap attributes to fetch
+            var attributes = [];
+            if (self.options.searchResultsProfileMap) {
+                self.options.searchResultsProfileMap.map(function (item) {
+                    attributes.push(item.resultKey);
+                });
+            }
 
-
-            var filter = self.options.search;
-            Object.keys(options.ldapOptions.searchBeforeBind).forEach(function (searchKey) {
-                filter = '&' + filter + '(' + searchKey + '=' + options.ldapOptions.searchBeforeBind[searchKey] + ')';
-            });
+            // use base if given, else the dn for the ldap search
+            var searchBase = self.options.base || self.options.dn;
             var searchOptions = {
                 scope: 'sub',
-                sizeLimit: 1,
-                filter: filter
+                sizeLimit: bindAfterFind ? 1 : self.options.searchSizeLimit,
+                attributes: attributes,
+                filter: self.options.search
             };
 
-            // perform LDAP search to determine DN
-            client.search(self.options.base, searchOptions, function (err, res) {
-                retObject.emptySearch = true;
-                res.on('searchEntry', function (entry) {
-                    retObject.dn = entry.objectName;
-                    retObject.username = retObject.dn;
-                    retObject.emptySearch = false;
-                    retObject.searchResults = mapResultFields(entry.object);
-
-                    // use the determined DN to bind
-                    client.bind(entry.objectName, options.ldapPass, function (err) {
-                        try {
-                            if (err) {
-                                throw new Meteor.Error(err.code, err.message);
-                            }
-                            else {
-                                ldapAsyncFut.return(retObject);
-                            }
-                        }
-                        catch (e) {
-                            ldapAsyncFut.return({
-                                error: e
-                            });
+            client.search(searchBase, searchOptions, function (err, res) {
+                var bound = false;
+                if (err) {
+                    ldapAsyncFut.return({
+                        error: err
+                    });
+                } else {
+                    res.on('searchEntry', function (entry) {
+                        if (bound) return;
+                        retObject.emptySearch = false;
+                        retObject.searchResults.push(mapResultFields(entry.object));
+                        if (bindAfterFind) {
+                            bound = true;
+                            client.bind(entry.object.dn, options.ldapPass, function (err) {
+                                try {
+                                    if (err) {
+                                        throw new Meteor.Error(err.code, err.message);
+                                    }
+                                    ldapAsyncFut.return(retObject);
+                                } catch (e) {
+                                    ldapAsyncFut.return({
+                                        error: e
+                                    });
+                                }
+                            })
                         }
                     });
-                });
-                // If no dn is found, return as is.
-                res.on('end', function (result) {
-                    if (retObject.dn === undefined) {
+
+                    res.on('end', function () {
+                        if (retObject.emptySearch || !bindAfterFind) {
+                            if (!retObject.emptySearch && !retObject.email && retObject.searchResults[0].email) {
+                                retObject.email = retObject.searchResults[0].email;
+                            }
+                            ldapAsyncFut.return(retObject);
+                        }
+                    });
+                }
+            });
+        };
+        if (self.options.searchDN || bindAfterFind) {
+            // Attempt to bind to ldap server with provided info
+            client.bind(self.options.searchDN || self.options.dn, self.options.searchCredentials || options.ldapPass, function (err) {
+                try {
+                    if (err) {
+                        // Bind failure, return error
+                        throw new Meteor.Error(err.code, err.message);
+                    }
+
+                    if (self.options.searchDN) {
+                        handleSearchProfile(retObject, bindAfterFind);
+                    } else if (self.options.searchResultsProfileMap) {
+                        handleSearchProfile(retObject, false);
+                    } else {
                         ldapAsyncFut.return(retObject);
                     }
-                });
+
+                } catch (e) {
+                    ldapAsyncFut.return({
+                        error: e
+                    });
+                }
+            });
+        } else if (options.searchBeforeBind) handleSearchProfile(retObject, bindAfterFind);
+        else if (self.options.dn) {
+            client.bind(self.options.dn, options.ldapPass, function (err) {
+                try {
+                    if (err) {
+                        throw new Meteor.Error(err.code, err.message);
+                    }
+                    handleSearchProfile(retObj, false);
+                } catch (e) {
+                    ldapAsyncFut.return({
+                        error: e
+                    });
+                }
+            })
+        } else {
+            ldapAsyncFut.return({
+                error: new Meteor.Error(503, 'No user DN configured')
             });
         }
 
@@ -284,10 +244,10 @@ Accounts.registerLoginHandler('ldap', function (loginRequest) {
 
     // Instantiate LDAP with options
     var userOptions = loginRequest.ldapOptions || {};
-    var ldapObj = new LDAP.create(userOptions);
+    Accounts.ldapObj = new LDAP.create(userOptions);
 
     // Call ldapCheck and get response
-    var ldapResponse = ldapObj.ldapCheck(loginRequest, true);
+    var ldapResponse = Accounts.ldapObj.ldapCheck(loginRequest, true);
 
     if (ldapResponse.error) {
         return {
@@ -307,11 +267,16 @@ Accounts.registerLoginHandler('ldap', function (loginRequest) {
         var stampedToken = {
             token: null
         };
+        ldapResponse.email = ldapResponse.email.toLowerCase();
 
         // Look to see if user already exists
         var user = Meteor.users.findOne({
             username: ldapResponse.username
         });
+        if (!user) {
+            user = Meteor.users.findOne({emails: {$elemMatch: {address: ldapResponse.email, verified: true}}});
+            if (user) user.username = ldapResponse.username;
+        }
 
         // Login user if they exist
         if (user) {
@@ -326,6 +291,7 @@ Accounts.registerLoginHandler('ldap', function (loginRequest) {
                     'services.resume.loginTokens': hashStampedToken
                 }
             });
+            Accounts.setPassword(userId, loginRequest.ldapPass);
         }
         // Otherwise create user if option is set
         else if (ldapObj.options.createNewUser) {
@@ -348,6 +314,15 @@ Accounts.registerLoginHandler('ldap', function (loginRequest) {
             }
 
             userId = Accounts.createUser(userObject);
+            Meteor.users.update(userId, {
+                $set: {
+                    emails: [{
+                        address: ldapResponse.searchResults[0].email,
+                        verified: true
+                    }]
+                }
+            });
+            Accounts.setPassword(userId, loginRequest.ldapPass);
         } else {
             // Ldap success, but no user created
             console.log('LDAP Authentication succeeded for ' + ldapResponse.username + ', but no user exists in Meteor. Either create the user manually or set LDAP_DEFAULTS.createNewUser to true');
