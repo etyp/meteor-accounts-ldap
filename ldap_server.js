@@ -267,7 +267,7 @@ Accounts.registerLoginHandler('ldap', function (loginRequest) {
         var stampedToken = {
             token: null
         };
-        ldapResponse.email = ldapResponse.email.toLowerCase();
+        ldapResponse.email = ldapResponse.searchResults[0].email.toLowerCase();
 
         // Look to see if user already exists
         var user = Meteor.users.findOne({
