@@ -15,7 +15,8 @@ Package.onUse(function(api) {
 
 
   api.use('accounts-base', 'server');
-  api.imply('accounts-base', 'accounts-password', ['client', 'server']);
+  api.imply('accounts-base', ['client', 'server']);
+  api.imply('accounts-password', ['client', 'server']);
 
   api.use('check');
 
